@@ -5,8 +5,8 @@ from kivy.lang import Builder
 from kivy.factory import Factory
 from kivymd.app import MDApp
 from kivymd.uix.button import MDRectangleFlatButton
-from garden.matplotlib.backend_kivyagg import FigureCanvasKivyAgg
 from kivy.properties import ObjectProperty
+from kivy.garden.matplotlib.backend_kivyagg import FigureCanvasKivyAgg
 
 import pandas as pd
 import matplotlib.pyplot as plt
