@@ -1,14 +1,19 @@
+from os.path import join
+
 from kivy.lang import Builder
-from kivy.properties import ObjectProperty
+from kivy.properties import ObjectProperty, ListProperty
 from kivy.uix.boxlayout import BoxLayout
 from kivymd.app import MDApp
 from kivymd.toast import toast
 from kivymd.uix.filemanager import MDFileManager
 from kivy.core.window import Window
+import sys
 
+import os
 import pandas as pd
 import matplotlib.pyplot as plt
 from kivy.garden.matplotlib.backend_kivyagg import FigureCanvasKivyAgg
+from plyer import filechooser
 
 KV = '''
 <ContentNavigationDrawer>:
@@ -94,7 +99,7 @@ Screen:
                 MDLabel:
                     text: "Test"
                     id: file_path
-                    pos_hint: {'center_x': .5, 'center_y': .3}
+                    pos_hint: {'center_x': 1, 'center_y': .2}
 
             Screen:
                 name: "scr 2"
@@ -109,6 +114,11 @@ Screen:
                     pos_hint: {'center_x': .5, 'center_y': .6}
                     on_release: app.winners()
                     
+                MDLabel:
+                    id: text_no_file
+                    text: 
+                    pos_hint: {'center_x': 1, 'center_y': .4}   
+                
                 BoxLayout:
                     id: box_graph
                     orientation: "vertical"
@@ -143,40 +153,28 @@ class ContentNavigationDrawer(BoxLayout):
 
 class TestNavigationDrawer(MDApp):
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        Window.bind(on_keyboard=self.events)
-        self.manager_open = False
-        self.file_manager = MDFileManager(
-            exit_manager=self.exit_manager,
-            select_path=self.select_path,
-            previous=True,
-        )
+    selection = ListProperty([])
 
     def build(self):
         return Builder.load_string(KV)
 
     def file_manager_open(self):
-        self.file_manager.show('/')  # output manager to the screen
-        self.manager_open = True
+        filechooser.open_file(on_selection=self.handle_selection,
+                              title="Pick a CSV file",
+                              filters=[("*.csv")])
 
-    def select_path(self, path):
-        '''It will be called when you click on the file name
-        or the catalog selection button.
-
-        :type path: str;
-        :param path: path to the selected directory or file;
+    def on_selection(self, *a, **k):
         '''
+        Update TextInput.text after FileChoose.selection is changed
+        via FileChoose.handle_selection.
+        '''
+        self.root.ids.file_path.text = str(self.selection)
 
-        self.root.ids.file_path.text = path
-        self.exit_manager()
-        toast(self.root.ids.file_path.text)
-
-    def exit_manager(self, *args):
-        '''Called when the user reaches the root of the directory tree.'''
-
-        self.manager_open = False
-        self.file_manager.close()
+    def handle_selection(self, selection):
+        '''
+        Callback function for handling the selection response from Activity.
+        '''
+        self.selection = selection
 
     def events(self, instance, keyboard, keycode, text, modifiers):
         '''Called when buttons are pressed on the mobile device.'''
@@ -188,8 +186,15 @@ class TestNavigationDrawer(MDApp):
 
 
     def winners(self):
-        df = pd.read_csv('csv.csv')
-        winners1 = df['Победитель1'].value_counts().plot.bar()
-        self.root.ids.box_graph.add_widget(FigureCanvasKivyAgg(plt.gcf()))
+
+        if self.selection:
+            self.root.ids.text_no_file.text = ''
+            df = pd.read_csv(self.selection[0])
+            winners1 = df['Победитель1'].value_counts().plot.bar()
+            self.root.ids.box_graph.add_widget(FigureCanvasKivyAgg(plt.gcf()))
+        else:
+            self.root.ids.text_no_file.text = "No csv file selected,please," \
+                                              "select csv file"
+
 
 TestNavigationDrawer().run()
