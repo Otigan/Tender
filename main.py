@@ -137,7 +137,7 @@ Screen:
                 id: result_screen
             
                 BoxLayout:
-                    size_hint: 1, 0.9
+                    size_hint: 1, 0.7
                     ScatterLayout:
                         id: box
                         on_size: self.center = win.Window.center
@@ -193,6 +193,10 @@ class TenderBot(MDApp):
 
     clients = ObjectProperty()
 
+    check_graph = ObjectProperty()
+
+    check_clients = ObjectProperty()
+
     def build(self):
         return Builder.load_string(KV)
 
@@ -203,39 +207,46 @@ class TenderBot(MDApp):
 
         self.root.ids.file_path.text = "File loaded: csv.csv"
 
+        self.check_clients = False
+
+        self.check_graph = False
 
 
     def winners(self):
         if self.clients is not None:
             self.root.ids.result_screen.remove_widget(self.clients)
-            # Reading csv file
 
-        df = pd.read_csv('csv.csv')
+            self.check_clients = False
 
-        df['Победитель1'].value_counts()[df['Победитель1'].value_counts() >= 2].plot.barh()
+        if self.check_graph == False:
+            df = pd.read_csv('csv.csv')
 
-        # plt.subplots_adjust(left=0.5)
+            df['Победитель1'].value_counts()[df['Победитель1'].value_counts() >= 2].plot.barh()
 
-        # plt.tight_layout()
+            # plt.subplots_adjust(left=0.5)
 
-        plt.savefig("image.png", bbox_inches='tight', dpi=150)
+            # plt.tight_layout()
 
-        # self.root.ids.box.add_widget(self.graph)
+            plt.savefig("image.png", bbox_inches='tight', dpi=150)
 
-        # scatter = Picture(source='image.png')
+            # self.root.ids.box.add_widget(self.graph)
 
-        image = AsyncImage(source='image.png', size_hint=(1, 0.9))
+            # scatter = Picture(source='image.png')
 
-        self.graph = image
+            image = AsyncImage(source='image.png', )
 
-        self.root.ids.box.add_widget(image)
+            self.graph = image
 
-        btn = MDRectangleFlatButton(text='Go to result screen',
-                                    pos_hint={'center_x': .5, 'center_y': .4})
+            self.root.ids.box.add_widget(image)
 
-        btn.bind(on_press=self.switch)
+            btn = MDRectangleFlatButton(text='Go to result screen',
+                                        pos_hint={'center_x': .5, 'center_y': .4})
 
-        self.root.ids.choice_screen.add_widget(btn)
+            btn.bind(on_press=self.switch)
+
+            self.root.ids.choice_screen.add_widget(btn)
+
+            self.check_graph = True
 
     def switch(self, instance):
         screen_manager = self.root.ids.screen_manager
@@ -248,49 +259,52 @@ class TenderBot(MDApp):
         if self.graph is not None:
             self.root.ids.box.remove_widget(self.graph)
 
-        df = pd.read_csv('csv.csv')
+            self.check_graph = False
 
-        df['Дата'] = pd.to_datetime(df['Дата'])
+        if self.check_clients == False:
+            df = pd.read_csv('csv.csv')
 
-        btn = MDRectangleFlatButton(text='Go to result screen',
-                                    pos_hint={'center_x': .5, 'center_y': .4})
+            df['Дата'] = pd.to_datetime(df['Дата'])
 
-        btn.bind(on_press=self.switch)
+            btn = MDRectangleFlatButton(text='Go to result screen',
+                                        pos_hint={'center_x': .5, 'center_y': .4})
 
-        self.root.ids.choice_screen.add_widget(btn)
+            btn.bind(on_press=self.switch)
 
-        sr = df[df['Дата'].dt.year == 2018]
-        sr1 = df[df['Дата'].dt.year == 2019]
+            self.root.ids.choice_screen.add_widget(btn)
 
-        srr = sr[['Наименование']]
-        srr1 = sr1[['Наименование']]
+            sr = df[df['Дата'].dt.year == 2018]
+            sr1 = df[df['Дата'].dt.year == 2019]
 
-        ch = srr.values.tolist()
-        ch1 = srr1.values.tolist()
+            srr = sr[['Наименование']]
+            srr1 = sr1[['Наименование']]
 
-        for name in ch:
-            df.drop(df[df['Наименование'] == name[0]].index, inplace=True)
+            ch = srr.values.tolist()
+            ch1 = srr1.values.tolist()
 
-        for name in ch1:
-            df.drop(df[df['Наименование'] == name[0]].index, inplace=True)
+            for name in ch:
+                df.drop(df[df['Наименование'] == name[0]].index, inplace=True)
 
-        abc = df['Наименование'].tolist()
+            for name in ch1:
+                df.drop(df[df['Наименование'] == name[0]].index, inplace=True)
 
-        s = set(abc)
+            abc = df['Наименование'].tolist()
 
-        text = 'Список потенциальных заказчиков:'
+            s = set(abc)
 
-        for name in s:
-            text += '\n\n' + name + ","
+            text = 'Список потенциальных заказчиков:'
 
-        # self.root.ids.result_text.text = text
+            for name in s:
+                text += '\n\n' + name + ","
 
-        self.clients = MDLabel(text=text,
-                               halign='center')
+            # self.root.ids.result_text.text = text
 
-        self.root.ids.result_screen.add_widget(self.clients)
+            self.clients = MDLabel(text=text,
+                                   halign='center')
 
-        print(self.clients.text)
+            self.root.ids.result_screen.add_widget(self.clients)
+
+            self.check_clients = True
 
 
 TenderBot().run()
