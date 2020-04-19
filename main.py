@@ -1,27 +1,16 @@
 import matplotlib.pyplot as plt
 import pandas as pd
-from kivy.garden.matplotlib.backend_kivyagg import FigureCanvasKivyAgg
-from kivy.graphics.transformation import Matrix
 from kivy.lang import Builder
 from kivy.properties import ObjectProperty, ListProperty, StringProperty
-from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.image import AsyncImage, Image
-from kivy.uix.scatter import Scatter, ScatterPlane
+from kivy.uix.image import AsyncImage
+from kivy.uix.scatter import Scatter
 from kivy.uix.screenmanager import ScreenManager
 from kivy.uix.widget import Widget
 from kivymd.app import MDApp
-from kivymd.theming import ThemeManager
 from kivymd.uix.button import MDRectangleFlatButton
 from kivymd.uix.label import MDLabel
-from plyer import filechooser
-import ntpath
-import time
-import functools
-from jnius import autoclass
-from kivy.logger import Logger
-from pythonforandroid.recipes.android.src.android.permissions import request_permissions, Permission, check_permission
-import sys
+
 
 KV = '''
 #:import kivy kivy
@@ -43,13 +32,13 @@ KV = '''
             source: "data/logo/kivy-icon-256.png"
 
     MDLabel:
-        text: "TenderBot"
+        text: "Tender Bot"
         font_style: "Button"
         size_hint_y: None
         height: self.texture_size[1]
 
     MDLabel:
-        text: "kivydevelopment@gmail.com"
+        text: "sample_email@gmail.com"
         font_style: "Caption"
         size_hint_y: None
         height: self.texture_size[1]
@@ -79,12 +68,6 @@ KV = '''
                     root.screen_manager.current = "scr 3"
                     root.toolbar.title = "Analytics result"
                     
-            OneLineListItem:
-                text: "About page"
-                on_press:
-                    root.nav_drawer.set_state("close")
-                    root.screen_manager.current = "scr 4"
-                    root.toolbar.title = "About page"
 
 
 Screen:
@@ -107,21 +90,15 @@ Screen:
                 name: "scr 1"
 
                 MDLabel:
-                    text: "To start an analytics, please, choose a xlxs/csv file"
+                    id: greetings
+                    text: ""
                     halign: "center"
-                    
-                MDRoundFlatIconButton:
-                    text: "Open manager"
-                    icon: "folder"
-                    pos_hint: {'center_x': .5, 'center_y': .6}
-                    on_release: app.file_manager_open()
-                                
-                    
+                        
                 MDLabel:
                     text: ""
                     id: file_path
                     halign: "center"
-                    pos_hint: {'center_y': .2}
+                    pos_hint: {'center_y': .3}
 
             Screen:
                 id: choice_screen
@@ -168,12 +145,6 @@ Screen:
                         do_translation: False
                     
         
-            Screen:
-                name: "scr 4"
-
-                MDLabel:
-                    text: "This is TenderAnalytics Bot"
-                    halign: "center"
 
         MDNavigationDrawer:
             id: nav_drawer
@@ -216,7 +187,6 @@ class MyButton(MDRectangleFlatButton, ScreenManager):
 
 class TenderBot(MDApp):
 
-
     selection = ListProperty([])
 
     graph = ObjectProperty()
@@ -226,94 +196,46 @@ class TenderBot(MDApp):
     def build(self):
         return Builder.load_string(KV)
 
-    def file_manager_open(self):
+    def on_start(self):
+        self.root.ids.greetings.text = "Hi! This is tender analytics bot" + "\n\n" \
+                                       + "At the moment app has two type of analytics:" \
+                                       + "\n" + "1.Show potential competitors" + "\n" + "2.Show potential clients"
 
-        if(sys.platform == "linux"):
-            request_permissions([Permission.WRITE_EXTERNAL_STORAGE, ])
-            # For requesting permission you can pass a list with all the permissions you need
-            if (check_permission('android.permission.WRITE_EXTERNAL_STORAGE')):
-                filechooser.open_file(on_selection=self.handle_selection,
-                                      title="Pick a CSV file",
-                                      filters=[("*.csv")])
-        else:
-            filechooser.open_file(on_selection=self.handle_selection,
-                                  title="Pick a CSV file",
-                                  filters=[("*.csv")])
-
-    def on_selection(self, *a, **k):
-        '''
-        Update TextInput.text after FileChoose.selection is changed
-        via FileChoose.handle_selection.
-        '''
-        #self.root.ids.file_path.text = str(self.selection)
+        self.root.ids.file_path.text = "File loaded: csv.csv"
 
 
-        self.root.ids.file_path.text = 'Opened file:' + "\n" + str(self.path_leaf(self.selection[0]))
-
-        self.root.ids.text_no_file.text = ''
-
-
-    def path_leaf(self, path):
-        head, tail = ntpath.split(path)
-        return tail or ntpath.basename(head)
-
-
-    def handle_selection(self, selection):
-        '''
-        Callback function for handling the selection response from Activity.
-        '''
-        self.selection = selection
-
-    def events(self, instance, keyboard, keycode, text, modifiers):
-        '''Called when buttons are pressed on the mobile device.'''
-
-        if keyboard in (1001, 27):
-            if self.manager_open:
-                self.file_manager.back()
-        return True
 
     def winners(self):
-
         if self.clients is not None:
             self.root.ids.result_screen.remove_widget(self.clients)
+            # Reading csv file
 
+        df = pd.read_csv('csv.csv')
 
-        if self.selection:
+        df['Победитель1'].value_counts()[df['Победитель1'].value_counts() >= 2].plot.barh()
 
-            #Reading csv file
-            df = pd.read_csv(self.selection[0])
+        # plt.subplots_adjust(left=0.5)
 
+        # plt.tight_layout()
 
-            df['Победитель1'].value_counts()[df['Победитель1'].value_counts() >= 2].plot.barh()
+        plt.savefig("image.png", bbox_inches='tight', dpi=150)
 
+        # self.root.ids.box.add_widget(self.graph)
 
-            #plt.subplots_adjust(left=0.5)
+        # scatter = Picture(source='image.png')
 
-            #plt.tight_layout()
+        image = AsyncImage(source='image.png', size_hint=(1, 0.9))
 
+        self.graph = image
 
-            plt.savefig("image.png", bbox_inches='tight', dpi=150)
+        self.root.ids.box.add_widget(image)
 
-            #self.root.ids.box.add_widget(self.graph)
+        btn = MDRectangleFlatButton(text='Go to result screen',
+                                    pos_hint={'center_x': .5, 'center_y': .4})
 
-            #scatter = Picture(source='image.png')
+        btn.bind(on_press=self.switch)
 
-            image = AsyncImage(source='image.png', size_hint=(1, 0.9))
-
-            self.graph = image
-
-            self.root.ids.box.add_widget(image)
-
-            btn = MDRectangleFlatButton(text='Go to result screen',
-                                        pos_hint={'center_x': .5, 'center_y': .4})
-
-            btn.bind(on_press=self.switch)
-
-            self.root.ids.choice_screen.add_widget(btn)
-
-        else:
-            self.root.ids.text_no_file.text = "No csv file selected, please, " \
-                                              "select csv file"
+        self.root.ids.choice_screen.add_widget(btn)
 
     def switch(self, instance):
         screen_manager = self.root.ids.screen_manager
@@ -323,61 +245,52 @@ class TenderBot(MDApp):
         screen_manager.current = "scr 3"
 
     def potential_clients(self):
+        if self.graph is not None:
+            self.root.ids.box.remove_widget(self.graph)
 
-        if self.selection:
+        df = pd.read_csv('csv.csv')
 
-            if self.graph is not None:
-                self.root.ids.box.remove_widget(self.graph)
+        df['Дата'] = pd.to_datetime(df['Дата'])
 
-            df = pd.read_csv(self.selection[0])
+        btn = MDRectangleFlatButton(text='Go to result screen',
+                                    pos_hint={'center_x': .5, 'center_y': .4})
 
-            df['Дата'] = pd.to_datetime(df['Дата'])
+        btn.bind(on_press=self.switch)
 
-            btn = MDRectangleFlatButton(text='Go to result screen',
-                                        pos_hint={'center_x': .5, 'center_y': .4})
+        self.root.ids.choice_screen.add_widget(btn)
 
+        sr = df[df['Дата'].dt.year == 2018]
+        sr1 = df[df['Дата'].dt.year == 2019]
 
+        srr = sr[['Наименование']]
+        srr1 = sr1[['Наименование']]
 
-            btn.bind(on_press=self.switch)
+        ch = srr.values.tolist()
+        ch1 = srr1.values.tolist()
 
-            self.root.ids.choice_screen.add_widget(btn)
+        for name in ch:
+            df.drop(df[df['Наименование'] == name[0]].index, inplace=True)
 
-            sr = df[df['Дата'].dt.year == 2018]
-            sr1 = df[df['Дата'].dt.year == 2019]
+        for name in ch1:
+            df.drop(df[df['Наименование'] == name[0]].index, inplace=True)
 
-            srr = sr[['Наименование']]
-            srr1 = sr1[['Наименование']]
+        abc = df['Наименование'].tolist()
 
-            ch = srr.values.tolist()
-            ch1 = srr1.values.tolist()
+        s = set(abc)
 
-            for name in ch:
-                df.drop(df[df['Наименование'] == name[0]].index, inplace=True)
+        text = 'Список потенциальных заказчиков:'
 
-            for name in ch1:
-                df.drop(df[df['Наименование'] == name[0]].index, inplace=True)
+        for name in s:
+            text += '\n\n' + name + ","
 
-            abc = df['Наименование'].tolist()
+        # self.root.ids.result_text.text = text
 
-            s = set(abc)
+        self.clients = MDLabel(text=text,
+                               halign='center')
 
-            text = 'Список потенциальных заказчиков:'
+        self.root.ids.result_screen.add_widget(self.clients)
 
-            for name in s:
-                text += '\n\n' + name + ","
-
-            # self.root.ids.result_text.text = text
-
-            self.clients = MDLabel(text=text,
-                                   halign='center')
-
-            self.root.ids.result_screen.add_widget(self.clients)
-
-            print(self.clients.text)
-
-        else:
-            self.root.ids.text_no_file.text = "No csv file selected, please, " \
-                                              "select csv file"
+        print(self.clients.text)
 
 
 TenderBot().run()
