@@ -1,21 +1,25 @@
-from os.path import join
-
-from kivy.lang import Builder
-from kivy.properties import ObjectProperty, ListProperty
-from kivy.uix.boxlayout import BoxLayout
-from kivymd.app import MDApp
-from kivymd.toast import toast
-from kivymd.uix.filemanager import MDFileManager
-from kivy.core.window import Window
-import sys
-
-import os
-import pandas as pd
 import matplotlib.pyplot as plt
+import pandas as pd
 from kivy.garden.matplotlib.backend_kivyagg import FigureCanvasKivyAgg
+from kivy.graphics.transformation import Matrix
+from kivy.lang import Builder
+from kivy.properties import ObjectProperty, ListProperty, StringProperty
+from kivy.uix.behaviors import ButtonBehavior
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.image import AsyncImage, Image
+from kivy.uix.scatter import Scatter, ScatterPlane
+from kivy.uix.screenmanager import ScreenManager
+from kivy.uix.widget import Widget
+from kivymd.app import MDApp
+from kivymd.theming import ThemeManager
+from kivymd.uix.button import MDRectangleFlatButton
+from kivymd.uix.label import MDLabel
 from plyer import filechooser
+import ntpath
 
 KV = '''
+#:import kivy kivy
+#:import win kivy.core.window
 <ContentNavigationDrawer>:
     orientation: "vertical"
     padding: "8dp"
@@ -33,7 +37,7 @@ KV = '''
             source: "data/logo/kivy-icon-256.png"
 
     MDLabel:
-        text: "KivyMD library"
+        text: "TenderBot"
         font_style: "Button"
         size_hint_y: None
         height: self.texture_size[1]
@@ -53,18 +57,28 @@ KV = '''
                 on_press:
                     root.nav_drawer.set_state("close")
                     root.screen_manager.current = "scr 1"
+                    root.toolbar.title = "Starting page"
 
             OneLineListItem:
-                text: "Analytics"
+                text: "Analytics type"
                 on_press:
                     root.nav_drawer.set_state("close")
                     root.screen_manager.current = "scr 2"
+                    root.toolbar.title = "Analytics type"
+                    
+            OneLineListItem:
+                text: "Analytics result"
+                on_press:
+                    root.nav_drawer.set_state("close")
+                    root.screen_manager.current = "scr 3"
+                    root.toolbar.title = "Analytics result"
                     
             OneLineListItem:
                 text: "About page"
                 on_press:
                     root.nav_drawer.set_state("close")
-                    root.screen_manager.current = "scr 3"
+                    root.screen_manager.current = "scr 4"
+                    root.toolbar.title = "About page"
 
 
 Screen:
@@ -72,8 +86,9 @@ Screen:
     MDToolbar:
         id: toolbar
         pos_hint: {"top": 1}
+        size_hint: 1, 0.1
         elevation: 10
-        title: "MDNavigationDrawer"
+        title: "Starting page"
         left_action_items: [["menu", lambda x: nav_drawer.set_state("open")]]
 
     NavigationLayout:
@@ -97,41 +112,58 @@ Screen:
                                 
                     
                 MDLabel:
-                    text: "Test"
+                    text: ""
                     id: file_path
-                    pos_hint: {'center_x': 1, 'center_y': .2}
+                    halign: "center"
+                    pos_hint: {'center_y': .2}
 
             Screen:
+                id: choice_screen
                 name: "scr 2"
 
                 MDLabel:
                     text: "Choose an analytics that you want"
                     halign: "center"
+                    pos_hint: {'center_y': .7}
                  
                 MDRoundFlatIconButton:
-                    text: "Winners"
+                    id: btn_competitors
+                    text: "Potential competitors"
                     icon: "folder"
                     pos_hint: {'center_x': .5, 'center_y': .6}
+                    width: 200
                     on_release: app.winners()
+                    
+                MDRoundFlatIconButton:
+                    id: btn_clients
+                    text: "Potential client"
+                    icon: "folder"
+                    pos_hint: {'center_x': .5, 'center_y': .5}
+                    on_release: app.potential_clients()
                     
                 MDLabel:
                     id: text_no_file
+                    halign: "center"
                     text: 
-                    pos_hint: {'center_x': 1, 'center_y': .4}   
+                    pos_hint: {'center_y': .2}   
+
                 
-                BoxLayout:
-                    id: box_graph
-                    orientation: "vertical"
-                    padding: dp(10)
-                    size_hint: 1, 0.5
-                    size: self.minimum_size
-                    spacing: dp(10)
-                    orientation: "vertical"
-                    pos_hint: {"center_x": .5}
                 
-                    
             Screen:
                 name: "scr 3"
+                id: result_screen
+            
+                BoxLayout:
+                    size_hint: 1, 0.9
+                    ScatterLayout:
+                        id: box
+                        on_size: self.center = win.Window.center
+                        do_rotation: False
+                        do_translation: False
+                    
+        
+            Screen:
+                name: "scr 4"
 
                 MDLabel:
                     text: "This is TenderAnalytics Bot"
@@ -143,19 +175,61 @@ Screen:
             ContentNavigationDrawer:
                 screen_manager: screen_manager
                 nav_drawer: nav_drawer
+                toolbar: toolbar
+                           
 '''
+
+
+class ResultBox(BoxLayout):
+    pass
+
+class MyScatterPlane(ScatterPlane):
+    def on_touch_up(self, touch):
+        if self.collide_point(*touch.pos):
+            if touch.is_mouse_scrolling:
+                if touch.button == 'scrolldown':
+                    mat = Matrix().scale(.9, .9, .9)
+                    self.apply_transform(mat, anchor=touch.pos)
+                elif touch.button == 'scrollup':
+                    mat = Matrix().scale(1.1, 1.1, 1.1)
+                    self.apply_transform(mat, anchor=touch.pos)
+        return super().on_touch_up(touch)
 
 
 class ContentNavigationDrawer(BoxLayout):
     screen_manager = ObjectProperty()
     nav_drawer = ObjectProperty()
+    toolbar = ObjectProperty()
 
 
-class TestNavigationDrawer(MDApp):
+
+class Picture(Scatter):
+    source = StringProperty(None)
+
+
+class ImageWidget(Widget):
+    pass
+
+class MyButton(MDRectangleFlatButton, ScreenManager):
+    def __init__(self, **kwargs):
+        super(MyButton, self, ScreenManager).__init__(**kwargs)
+        self.screen_manager = ScreenManager
+
+    def on_release(self):
+        self.screen_manager.switch_to(self.ids.result)
+
+
+class TenderBot(MDApp):
+
 
     selection = ListProperty([])
 
+    graph = ObjectProperty()
+
+    clients = ObjectProperty()
+
     def build(self):
+
         return Builder.load_string(KV)
 
     def file_manager_open(self):
@@ -168,7 +242,18 @@ class TestNavigationDrawer(MDApp):
         Update TextInput.text after FileChoose.selection is changed
         via FileChoose.handle_selection.
         '''
-        self.root.ids.file_path.text = str(self.selection)
+        #self.root.ids.file_path.text = str(self.selection)
+
+
+        self.root.ids.file_path.text = 'Opened file:' + "\n" + str(self.path_leaf(self.selection[0]))
+
+        self.root.ids.text_no_file.text = ''
+
+
+    def path_leaf(self, path):
+        head, tail = ntpath.split(path)
+        return tail or ntpath.basename(head)
+
 
     def handle_selection(self, selection):
         '''
@@ -184,17 +269,112 @@ class TestNavigationDrawer(MDApp):
                 self.file_manager.back()
         return True
 
-
     def winners(self):
 
+        if self.clients is not None:
+            self.root.ids.result_screen.remove_widget(self.clients)
+
+
         if self.selection:
-            self.root.ids.text_no_file.text = ''
+
+            #Reading csv file
             df = pd.read_csv(self.selection[0])
-            winners1 = df['Победитель1'].value_counts().plot.bar()
-            self.root.ids.box_graph.add_widget(FigureCanvasKivyAgg(plt.gcf()))
+
+
+            df['Победитель1'].value_counts()[df['Победитель1'].value_counts() >= 2].plot.barh()
+
+
+            #plt.subplots_adjust(left=0.5)
+
+            #plt.tight_layout()
+
+
+            plt.savefig("image.png", bbox_inches='tight', dpi=150)
+
+            #self.root.ids.box.add_widget(self.graph)
+
+            #scatter = Picture(source='image.png')
+
+            image = AsyncImage(source='image.png', size_hint=(1, 0.9))
+
+            self.graph = image
+
+            self.root.ids.box.add_widget(image)
+
+            btn = MDRectangleFlatButton(text='Go to result screen',
+                                        pos_hint={'center_x': .5, 'center_y': .4})
+
+            btn.bind(on_press=self.switch)
+
+            self.root.ids.choice_screen.add_widget(btn)
+
         else:
-            self.root.ids.text_no_file.text = "No csv file selected,please," \
+            self.root.ids.text_no_file.text = "No csv file selected, please, " \
+                                              "select csv file"
+
+    def switch(self, instance):
+        screen_manager = self.root.ids.screen_manager
+
+        self.root.ids.toolbar.title = 'Analytics result'
+
+        screen_manager.current = "scr 3"
+
+    def potential_clients(self):
+
+        if self.selection:
+
+            if self.graph is not None:
+                self.root.ids.box.remove_widget(self.graph)
+
+            df = pd.read_csv(self.selection[0])
+
+            df['Дата'] = pd.to_datetime(df['Дата'])
+
+            btn = MDRectangleFlatButton(text='Go to result screen',
+                                        pos_hint={'center_x': .5, 'center_y': .4})
+
+
+
+            btn.bind(on_press=self.switch)
+
+            self.root.ids.choice_screen.add_widget(btn)
+
+            sr = df[df['Дата'].dt.year == 2018]
+            sr1 = df[df['Дата'].dt.year == 2019]
+
+            srr = sr[['Наименование']]
+            srr1 = sr1[['Наименование']]
+
+            ch = srr.values.tolist()
+            ch1 = srr1.values.tolist()
+
+            for name in ch:
+                df.drop(df[df['Наименование'] == name[0]].index, inplace=True)
+
+            for name in ch1:
+                df.drop(df[df['Наименование'] == name[0]].index, inplace=True)
+
+            abc = df['Наименование'].tolist()
+
+            s = set(abc)
+
+            text = 'Список потенциальных заказчиков:'
+
+            for name in s:
+                text += '\n\n' + name + ","
+
+            # self.root.ids.result_text.text = text
+
+            self.clients = MDLabel(text=text,
+                                   halign='center')
+
+            self.root.ids.result_screen.add_widget(self.clients)
+
+            print(self.clients.text)
+
+        else:
+            self.root.ids.text_no_file.text = "No csv file selected, please, " \
                                               "select csv file"
 
 
-TestNavigationDrawer().run()
+TenderBot().run()
