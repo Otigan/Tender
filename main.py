@@ -11,7 +11,7 @@ from kivymd.app import MDApp
 from kivymd.uix.button import MDRectangleFlatButton
 from kivymd.uix.label import MDLabel
 
-
+#This special KV language, that works like CSS, defining style for widgets
 KV = '''
 #:import kivy kivy
 #:import win kivy.core.window
@@ -156,37 +156,14 @@ Screen:
                            
 '''
 
-
-class ResultBox(BoxLayout):
-    pass
-
-
-
 class ContentNavigationDrawer(BoxLayout):
     screen_manager = ObjectProperty()
     nav_drawer = ObjectProperty()
     toolbar = ObjectProperty()
 
-
-
-class Picture(Scatter):
-    source = StringProperty(None)
-
-
-class ImageWidget(Widget):
-    pass
-
-class MyButton(MDRectangleFlatButton, ScreenManager):
-    def __init__(self, **kwargs):
-        super(MyButton, self, ScreenManager).__init__(**kwargs)
-        self.screen_manager = ScreenManager
-
-    def on_release(self):
-        self.screen_manager.switch_to(self.ids.result)
-
-
 class TenderBot(MDApp):
 
+    #This lines are class variables
     selection = ListProperty([])
 
     graph = ObjectProperty()
@@ -197,82 +174,122 @@ class TenderBot(MDApp):
 
     check_clients = ObjectProperty()
 
+
     def build(self):
         return Builder.load_string(KV)
 
+    #This method runs when app starts
     def on_start(self):
+        #Greeting string that displayed on start screen
         self.root.ids.greetings.text = "Hi! This is tender analytics bot" + "\n\n" \
                                        + "At the moment app has two type of analytics:" \
                                        + "\n" + "1.Show potential competitors" + "\n" + "2.Show potential clients"
 
+        #Filename, that currently loaded
         self.root.ids.file_path.text = "File loaded: csv.csv"
 
+        #This variables used for tracking is there any result(plot of potential competitors
+        # or list of potential clients) on result screen
         self.check_clients = False
-
         self.check_graph = False
 
-
+    # This method runs when user clicks on corresponding button
+    # Method adds scalabe image of plot to the screen
     def winners(self):
+        # Checking if there are list of potential client on the result screent
+        # and if there are, we are deleting this list from screen so that we can place plot on this screen
         if self.clients is not None:
+            # Deleting list of potential clients
             self.root.ids.result_screen.remove_widget(self.clients)
 
+            # Reseting flag
             self.check_clients = False
 
+        # Checking if result screen already has a plot, and if not we are adding it
         if self.check_graph == False:
+
+            # Dataframe that we get from .csv file
             df = pd.read_csv('csv.csv')
 
-            df['Победитель1'].value_counts()[df['Победитель1'].value_counts() >= 2].plot.barh()
+            # Counting winners from first column
+            df1 = df['Победитель1'].value_counts()[df['Победитель1'].value_counts() >= 2]
 
-            # plt.subplots_adjust(left=0.5)
+            # Counting winners from second column
+            df2 = df['Победитель2'].value_counts()[df['Победитель2'].value_counts() >= 2]
 
-            # plt.tight_layout()
+            # Adding dataframes into one dataframe
+            frames = [df1, df2]
+            df3 = pd.concat(frames)
 
+            # Creating horizontal bar plot
+            df3.plot.barh()
+
+            plt.subplots_adjust(left=0.5)
+
+            # Saving plot into image
             plt.savefig("image.png", bbox_inches='tight', dpi=150)
 
-            # self.root.ids.box.add_widget(self.graph)
-
-            # scatter = Picture(source='image.png')
-
+            # Creating image widget
             image = AsyncImage(source='image.png', )
 
+            #Adding image to class variable
             self.graph = image
 
             self.root.ids.box.add_widget(image)
 
+            # Adding button "Go to result"
             btn = MDRectangleFlatButton(text='Go to result screen',
                                         pos_hint={'center_x': .5, 'center_y': .4})
 
+            # Binding button with method, which allows us go to result screen
             btn.bind(on_press=self.switch)
 
+            # Adding button to screen
             self.root.ids.choice_screen.add_widget(btn)
 
+            # Setting flag
             self.check_graph = True
 
+
     def switch(self, instance):
+
+        # Getting screen manager, which do all work with screens
         screen_manager = self.root.ids.screen_manager
 
         self.root.ids.toolbar.title = 'Analytics result'
 
+        # Go to result screen
         screen_manager.current = "scr 3"
 
+
     def potential_clients(self):
+        # Checking if there are plot on result screen
         if self.graph is not None:
             self.root.ids.box.remove_widget(self.graph)
 
+            # Reseting flag
             self.check_graph = False
 
+        # Check if result screen already has clients list
         if self.check_clients == False:
+
+            # Getting dataframe from .csv file
             df = pd.read_csv('csv.csv')
 
+            # Formating data to object
             df['Дата'] = pd.to_datetime(df['Дата'])
 
+            # Adding button, that leads to result screen
             btn = MDRectangleFlatButton(text='Go to result screen',
                                         pos_hint={'center_x': .5, 'center_y': .4})
 
+            # Binding button with method
             btn.bind(on_press=self.switch)
 
+            # Adding button
             self.root.ids.choice_screen.add_widget(btn)
 
+            # Getting dataframe, with clients that made purchases in 2018 and 2019 years
             sr = df[df['Дата'].dt.year == 2018]
             sr1 = df[df['Дата'].dt.year == 2019]
 
